@@ -1,0 +1,430 @@
+[
+  {
+    "prompt_en": "In a still frame, a stop sign",
+    "dimension": [
+      "temporal_flickering"
+    ]
+  },
+  {
+    "prompt_en": "a toilet, frozen in time",
+    "dimension": [
+      "temporal_flickering"
+    ]
+  },
+  {
+    "prompt_en": "a laptop, frozen in time",
+    "dimension": [
+      "temporal_flickering"
+    ]
+  },
+  {
+    "prompt_en": "A tranquil tableau of alley",
+    "dimension": [
+      "temporal_flickering"
+    ]
+  },
+  {
+    "prompt_en": "a bird and a cat",
+    "dimension": [
+      "multiple_objects"
+    ],
+    "auxiliary_info": {
+      "multiple_objects": {
+        "object": "bird and cat"
+      }
+    }
+  },
+  {
+    "prompt_en": "a cat and a dog",
+    "dimension": [
+      "multiple_objects"
+    ],
+    "auxiliary_info": {
+      "multiple_objects": {
+        "object": "cat and dog"
+      }
+    }
+  },
+  {
+    "prompt_en": "a dog and a horse",
+    "dimension": [
+      "multiple_objects"
+    ],
+    "auxiliary_info": {
+      "multiple_objects": {
+        "object": "dog and horse"
+      }
+    }
+  },
+  {
+    "prompt_en": "a horse and a sheep",
+    "dimension": [
+      "multiple_objects"
+    ],
+    "auxiliary_info": {
+      "multiple_objects": {
+        "object": "horse and sheep"
+      }
+    }
+  },
+  {
+    "prompt_en": "A person is riding a bike",
+    "dimension": [
+      "human_action"
+    ]
+  },
+  {
+    "prompt_en": "A person is marching",
+    "dimension": [
+      "human_action"
+    ]
+  },
+  {
+    "prompt_en": "A person is roller skating",
+    "dimension": [
+      "human_action"
+    ]
+  },
+  {
+    "prompt_en": "A person is tasting beer",
+    "dimension": [
+      "human_action"
+    ]
+  },
+  {
+    "prompt_en": "a person swimming in ocean",
+    "dimension": [
+      "subject_consistency",
+      "dynamic_degree",
+      "motion_smoothness"
+    ]
+  },
+  {
+    "prompt_en": "a person giving a presentation to a room full of colleagues",
+    "dimension": [
+      "subject_consistency",
+      "dynamic_degree",
+      "motion_smoothness"
+    ]
+  },
+  {
+    "prompt_en": "a person washing the dishes",
+    "dimension": [
+      "subject_consistency",
+      "dynamic_degree",
+      "motion_smoothness"
+    ]
+  },
+  {
+    "prompt_en": "a person eating a burger",
+    "dimension": [
+      "subject_consistency",
+      "dynamic_degree",
+      "motion_smoothness"
+    ]
+  },
+  {
+    "prompt_en": "a person",
+    "dimension": [
+      "object_class"
+    ],
+    "auxiliary_info": {
+      "object_class": {
+        "object": "person"
+      }
+    }
+  },
+  {
+    "prompt_en": "a bicycle",
+    "dimension": [
+      "object_class"
+    ],
+    "auxiliary_info": {
+      "object_class": {
+        "object": "bicycle"
+      }
+    }
+  },
+  {
+    "prompt_en": "a car",
+    "dimension": [
+      "object_class"
+    ],
+    "auxiliary_info": {
+      "object_class": {
+        "object": "car"
+      }
+    }
+  },
+  {
+    "prompt_en": "a motorcycle",
+    "dimension": [
+      "object_class"
+    ],
+    "auxiliary_info": {
+      "object_class": {
+        "object": "motorcycle"
+      }
+    }
+  },
+  {
+    "prompt_en": "a red bicycle",
+    "dimension": [
+      "color"
+    ],
+    "auxiliary_info": {
+      "color": {
+        "color": "red"
+      }
+    }
+  },
+  {
+    "prompt_en": "a green bicycle",
+    "dimension": [
+      "color"
+    ],
+    "auxiliary_info": {
+      "color": {
+        "color": "green"
+      }
+    }
+  },
+  {
+    "prompt_en": "a blue bicycle",
+    "dimension": [
+      "color"
+    ],
+    "auxiliary_info": {
+      "color": {
+        "color": "blue"
+      }
+    }
+  },
+  {
+    "prompt_en": "a yellow bicycle",
+    "dimension": [
+      "color"
+    ],
+    "auxiliary_info": {
+      "color": {
+        "color": "yellow"
+      }
+    }
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, Van Gogh style",
+    "dimension": [
+      "appearance_style"
+    ],
+    "auxiliary_info": {
+      "appearance_style": {
+        "appearance_style": "Van Gogh style"
+      }
+    }
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, oil painting",
+    "dimension": [
+      "appearance_style"
+    ],
+    "auxiliary_info": {
+      "appearance_style": {
+        "appearance_style": "oil painting"
+      }
+    }
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand by Hokusai, in the style of Ukiyo",
+    "dimension": [
+      "appearance_style"
+    ],
+    "auxiliary_info": {
+      "appearance_style": {
+        "appearance_style": "by Hokusai, in the style of Ukiyo"
+      }
+    }
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, black and white",
+    "dimension": [
+      "appearance_style"
+    ],
+    "auxiliary_info": {
+      "appearance_style": {
+        "appearance_style": "black and white"
+      }
+    }
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, in super slow motion",
+    "dimension": [
+      "temporal_style"
+    ]
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, zoom in",
+    "dimension": [
+      "temporal_style"
+    ]
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, zoom out",
+    "dimension": [
+      "temporal_style"
+    ]
+  },
+  {
+    "prompt_en": "A beautiful coastal beach in spring, waves lapping on sand, pan left",
+    "dimension": [
+      "temporal_style"
+    ]
+  },
+  {
+    "prompt_en": "Close up of grapes on a rotating table.",
+    "dimension": [
+      "overall_consistency",
+      "aesthetic_quality",
+      "imaging_quality"
+    ]
+  },
+  {
+    "prompt_en": "Turtle swimming in ocean.",
+    "dimension": [
+      "overall_consistency",
+      "aesthetic_quality",
+      "imaging_quality"
+    ]
+  },
+  {
+    "prompt_en": "A storm trooper vacuuming the beach.",
+    "dimension": [
+      "overall_consistency",
+      "aesthetic_quality",
+      "imaging_quality"
+    ]
+  },
+  {
+    "prompt_en": "A panda standing on a surfboard in the ocean in sunset.",
+    "dimension": [
+      "overall_consistency",
+      "aesthetic_quality",
+      "imaging_quality"
+    ]
+  },
+  {
+    "prompt_en": "alley",
+    "dimension": [
+      "scene",
+      "background_consistency"
+    ],
+    "auxiliary_info": {
+      "scene": {
+        "scene": {
+          "scene": "alley"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "amusement park",
+    "dimension": [
+      "scene",
+      "background_consistency"
+    ],
+    "auxiliary_info": {
+      "scene": {
+        "scene": {
+          "scene": "amusement park"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "aquarium",
+    "dimension": [
+      "scene",
+      "background_consistency"
+    ],
+    "auxiliary_info": {
+      "scene": {
+        "scene": {
+          "scene": "aquarium"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "arch",
+    "dimension": [
+      "scene",
+      "background_consistency"
+    ],
+    "auxiliary_info": {
+      "scene": {
+        "scene": {
+          "scene": "arch"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "a bicycle on the left of a car, front view",
+    "dimension": [
+      "spatial_relationship"
+    ],
+    "auxiliary_info": {
+      "spatial_relationship": {
+        "spatial_relationship": {
+          "object_a": "bicycle",
+          "object_b": "car",
+          "relationship": "on the left of"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "a car on the right of a motorcycle, front view",
+    "dimension": [
+      "spatial_relationship"
+    ],
+    "auxiliary_info": {
+      "spatial_relationship": {
+        "spatial_relationship": {
+          "object_a": "car",
+          "object_b": "motorcycle",
+          "relationship": "on the right of"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "a motorcycle on the left of a bus, front view",
+    "dimension": [
+      "spatial_relationship"
+    ],
+    "auxiliary_info": {
+      "spatial_relationship": {
+        "spatial_relationship": {
+          "object_a": "motorcycle",
+          "object_b": "bus",
+          "relationship": "on the left of"
+        }
+      }
+    }
+  },
+  {
+    "prompt_en": "a bus on the right of a traffic light, front view",
+    "dimension": [
+      "spatial_relationship"
+    ],
+    "auxiliary_info": {
+      "spatial_relationship": {
+        "spatial_relationship": {
+          "object_a": "bus",
+          "object_b": "traffic light",
+          "relationship": "on the right of"
+        }
+      }
+    }
+  }
+]
