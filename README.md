@@ -14,7 +14,7 @@ If you find our work useful, please consider citing it:
 
 ```bibtex
 @inproceedings{10.2312:pg.20261030,
-  title     = {{MG-Cache: Multi-Granularity Caching for Accelerating Diffusion Transformer Inference}},
+  title     = {MG-Cache: Multi-Granularity Caching for Accelerating Diffusion Transformer Inference},
   author    = {Chen, Zesen and Xu, Youxuan and Li, Shigang},
   booktitle = {Pacific Graphics 2026 - Conference Papers and Posters},
   year      = {2026},
