@@ -14,13 +14,12 @@ If you find our work useful, please consider citing it:
 
 ```bibtex
 @inproceedings{10.2312:pg.20261030,
-  booktitle = {Pacific Graphics 2026 - Conference Papers and Posters},
-  editor    = {He, Ying and Thuerey, Nils and Liu, Lingjie},
   title     = {{MG-Cache: Multi-Granularity Caching for Accelerating Diffusion Transformer Inference}},
   author    = {Chen, Zesen and Xu, Youxuan and Li, Shigang},
+  booktitle = {Pacific Graphics 2026 - Conference Papers and Posters},
   year      = {2026},
   publisher = {The Eurographics Association},
   ISBN      = {978-3-03868-327-8},
-  DOI       = {10.2312/pg.20261030}
+  DOI       = {https://doi.org/10.2312/pg.20261030}
 }
 ```
