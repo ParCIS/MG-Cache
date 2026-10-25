@@ -8,6 +8,68 @@ MG-Cache is a novel and fully training-free acceleration framework for Diffusion
 
 *Overview of MG-Cache: a two-stage, multi-granularity caching framework that synergistically combines offline timestep profiling with online adaptive layer-wise caching to accelerate Diffusion Transformer inference.*
 
+## Repository structure
+
+The main directories and entry points are shown below.
+
+```text
+.
+├── README.md                                             # Project overview and citation
+├── MG-Cache.pdf                                          # Paper
+├── MG-Cache/                                             # Our method
+│   └── HunyuanVideo/                                     # MG-Cache on HunyuanVideo
+│       ├── hyvideo/                                      # Model and inference implementation
+│       │   ├── modules/                                  # Transformer blocks and caching logic
+│       │   ├── diffusion/                                # Denoising pipeline and scheduler
+│       │   ├── text_encoder/                             # Text encoders
+│       │   ├── vae/                                      # Video VAE
+│       │   ├── config.py                                 # Inference arguments
+│       │   └── inference.py                              # Model loading and sampling
+│       ├── calibration_data/                             # Precomputed calibration artifacts
+│       │   ├── timestep_error.json
+│       │   ├── layer_scores.pth
+│       │   └── linear_fit_step.pth
+│       ├── eval/                                         # VBench prompt lists
+│       ├── scripts/                                      # FP8 and multi-GPU inference examples
+│       ├── tests/                                        # Attention tests
+│       ├── utils/                                        # Environment utilities
+│       ├── sample_video.py                               # Single-prompt inference
+│       ├── sample_video_vbench.py                        # VBench batch inference
+│       ├── sample_vbench.sh                              # VBench launch script
+│       ├── gradio_server.py                              # Web demo
+│       └── requirements.txt                              # Python dependencies
+├── baseline/                                             # Baseline implementations
+│   ├── README.md                                         # Setup, paper settings, inference, and licenses
+│   ├── FORA/                                             # FORA on HunyuanVideo
+│   │   ├── hyvideo/                                      # Complete inference source with attention caching
+│   │   └── sample_video.py                               # Single-prompt inference
+│   ├── MixCache/                                         # MixCache on HunyuanVideo
+│   │   ├── hyvideo/                                      # Complete inference source and MixCache controller
+│   │   ├── configs/                                      # Cache configurations
+│   │   ├── prompts/                                      # Profiling prompts
+│   │   └── scripts/
+│   │       ├── run_mixcache_batch.py                     # Batch inference
+│   │       └── run_mixcache_profiling.py                 # Offline profiling
+│   └── SmoothCache/                                      # SmoothCache on HunyuanVideo
+│       ├── hyvideo/                                      # Complete inference source and SmoothCache runtime
+│       ├── prompts/                                      # Calibration prompts
+│       └── scripts/
+│           ├── run_smoothcache_calibration.py            # Calibration
+│           └── run_smoothcache_batch.py                  # Batch inference
+└── fig/                                                  # Figures used in the README
+```
+
+Each baseline directory also contains its own requirements, tests, utilities, and
+upstream license notices. See the [baseline guide](baseline/README.md) for setup
+and inference commands.
+
+## Baseline implementations
+
+Complete HunyuanVideo inference source for our FORA, MixCache, and SmoothCache
+baselines is available in [`baseline/`](baseline/README.md), with setup instructions,
+inference examples, paper settings, and license information. The guide also links
+to the official TeaCache and TaylorSeer implementations used in our experiments.
+
 ## Citation
 
 If you find our work useful, please consider citing it:

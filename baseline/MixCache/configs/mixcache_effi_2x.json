@@ -1,0 +1,13 @@
+{
+  "theta": 0.1,
+  "delta1": 0.05,
+  "delta2": 0.1,
+  "schedule": "effi",
+  "penalty": 5.0,
+  "block_indices": [10, 30],
+  "impact_step": 0.31,
+  "impact_cfg": 1.0,
+  "impact_block_base": 0.04,
+  "impact_block_scale": 0.35,
+  "impact_block_index_weight": 0.2
+}

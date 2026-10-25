@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+**/results/
+**/*_logs/
+**/ckpts/*
+**/smoothcache_calibration.json
+**/smoothcache_calibration.png
+**/mixcache_profile.json
+*.mp4
