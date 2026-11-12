@@ -1,3 +1,4 @@
+from itertools import repeat
 from typing import Any, List, Tuple, Optional, Union, Dict
 from einops import rearrange
 
@@ -17,8 +18,7 @@ from .mlp_layers import MLP, MLPEmbedder, FinalLayer
 from .modulate_layers import ModulateDiT, modulate, apply_gate
 from .token_refiner import SingleTokenRefiner
 
-step_fit_kb = torch.load("./calibration_data/linear_fit_step.pth")
-layer_score = torch.load('./calibration_data/layer_scores.pth')
+from ..cache import CacheRun
 
 def rel_l1(a: torch.Tensor ,b: torch.Tensor):
     l1 = torch.abs(a - b).mean()
@@ -33,7 +33,6 @@ def cosine_similarity(a: torch.Tensor, b: torch.Tensor):
     cos_sim = F.cosine_similarity(a.reshape(1, -1), b.reshape(1, -1), dim=-1)
     return 1-cos_sim
 
-prefetch_stream = torch.cuda.Stream()
 
 class MMDoubleStreamBlock(nn.Module):
     """
@@ -160,8 +159,7 @@ class MMDoubleStreamBlock(nn.Module):
         pre_attn: torch.Tensor = None,
         cache_policy: str = "blank",
         beta: float = 0.1,
-        step_i: int = 0,
-        layer_i: int = 0,
+        score: float = 0.0,
         acc_error: float = 0.0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         (
@@ -195,9 +193,10 @@ class MMDoubleStreamBlock(nn.Module):
         update_layer_input = None
         update_attn = None
         is_skiped = False
-        if cache_policy=="layer":
-            acc_error += (rel_l1(pre_layer_input, torch.cat((img_modulated, txt_modulated), 1)) * layer_score[f'step_{step_i}'][f'layer_{layer_i}']).item()
-            update_layer_input = torch.cat((img_modulated, txt_modulated), 1) # 更新参考变量列表
+        if cache_policy in ("warmup", "layer"):
+            update_layer_input = torch.cat((img_modulated, txt_modulated), dim=1)
+        if cache_policy == "layer":
+            acc_error += (rel_l1(pre_layer_input, update_layer_input) * score).item()
         if cache_policy=="layer" and acc_error < beta:
             attn = pre_attn # 复用缓存
             is_skiped = True
@@ -376,8 +375,7 @@ class MMSingleStreamBlock(nn.Module):
         pre_attn: torch.Tensor = None,
         cache_policy: str = "blank",
         beta: float = 0.1,
-        step_i: int = 0,
-        layer_i: int = 0,
+        score: float = 0.0,
         acc_error: float = 0.0,
     ) -> torch.Tensor:
         mod_shift, mod_scale, mod_gate = self.modulation(vec).chunk(3, dim=-1)
@@ -388,9 +386,10 @@ class MMSingleStreamBlock(nn.Module):
         update_layer_input = None
         update_attn = None
         is_skiped = False
-        if cache_policy=="layer":
-            acc_error += (rel_l1(pre_layer_input, x_mod) * layer_score[f'step_{step_i}'][f'layer_{layer_i}']).item()
-            update_layer_input = x_mod # 更新参考变量列表
+        if cache_policy in ("warmup", "layer"):
+            update_layer_input = x_mod
+        if cache_policy == "layer":
+            acc_error += (rel_l1(pre_layer_input, x_mod) * score).item()
         if cache_policy == "layer" and acc_error < beta:
             attn = pre_attn # 复用缓存
             is_skiped = True
@@ -641,36 +640,6 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         )
 
         self.is_cache_offload = True
-        self.skip_timestep = []
-
-        seq_len = int((1+(args.video_length-1)/4)*(args.video_size[0]/16)*(args.video_size[1]/16)+256)
-        if self.is_cache_offload:
-            self.layer_input_cache = [
-                    torch.empty((1, seq_len, 3072), device='cpu', dtype=torch.bfloat16, pin_memory=True)
-                    for _ in range(60)
-                ]
-            self.attn_cache = [
-                    torch.empty((1, seq_len, 3072), device='cpu', dtype=torch.bfloat16, pin_memory=True)
-                    for _ in range(60)
-                ]
-        else:
-            self.layer_input_cache = [
-                    torch.empty((1, seq_len, 3072), device='cuda', dtype=torch.bfloat16)
-                    for _ in range(60)
-                ]
-            self.attn_cache = [
-                    torch.empty((1, seq_len, 3072), device='cuda', dtype=torch.bfloat16)
-                    for _ in range(60)
-                ]
-
-        self.timestep_cache = None
-
-        self.pre_layer_input = None
-        self.pre_attn = None
-
-        # 每一层对应的layer cache累积误差值
-        self.acc_error = [0.0 for _ in range(60)]
-        self.skiped_layer_num = 0
 
     def enable_deterministic(self):
         for block in self.double_blocks:
@@ -684,17 +653,7 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         for block in self.single_blocks:
             block.disable_deterministic()
 
-    def get_cache_policy(self, i):
-        if i in self.skip_timestep:
-            cache_policy = "step"
-        elif i==2:
-            cache_policy = "warmup"
-        elif i < 2:
-            cache_policy = "blank"
-        else:
-            cache_policy = "layer"
-        print(f'step[{i}]: {cache_policy}')
-        return cache_policy
+
 
     def forward(
         self,
@@ -709,8 +668,10 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
         return_dict: bool = True,
         step_index: int = 0,
         beta: float = 0.4,
-    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
-        cache_policy = self.get_cache_policy(step_index)
+        cache_run: Optional[CacheRun] = None,
+    ) -> Union[torch.Tensor, Dict[str, Any]]:
+        cache_policy = cache_run.policy(step_index) if cache_run is not None else "blank"
+        reused_layers = []
         out = {}
         img = x
         txt = text_states
@@ -721,8 +682,8 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
             ow // self.patch_size[2],
         )
         if cache_policy == "step":
-            img = step_fit_kb[f'step_{step_index}']["k"]*self.timestep_cache + step_fit_kb[f'step_{step_index}']["b"]
-            self.timestep_cache = img
+            fit = cache_run.fits[step_index]
+            img = fit["k"] * cache_run.timestep_output + fit["b"]
         else:
             # Prepare modulation vectors.
             vec = self.time_in(t)
@@ -761,148 +722,51 @@ class HYVideoDiffusionTransformer(ModelMixin, ConfigMixin):
             max_seqlen_kv = max_seqlen_q
 
             freqs_cis = (freqs_cos, freqs_sin) if freqs_cos is not None else None
-            skiped_layer = []
-            # --------------------- Pass through DiT blocks ------------------------
-            if self.is_cache_offload:
-                for i, block in enumerate(self.double_blocks):
-                    if cache_policy=="layer":
-                        with torch.cuda.stream(prefetch_stream):
-                            prefetch_layer_input = self.layer_input_cache[i + 1].to('cuda', non_blocking=True)
-                            prefetch_attn = self.attn_cache[i + 1].to('cuda', non_blocking=True)
-                    double_block_args = [
-                        img,
-                        txt,
-                        vec,
-                        cu_seqlens_q,
-                        cu_seqlens_kv,
-                        max_seqlen_q,
-                        max_seqlen_kv,
-                        freqs_cis,
-                        self.pre_layer_input,
-                        self.pre_attn,
-                        cache_policy,
-                        beta,
-                        step_index,
-                        i,
-                        self.acc_error[i],
-                    ]
-                    img, txt, update_layer_input, update_attn, is_skiped, acc_error = block(*double_block_args)
-                    if update_layer_input is not None:
-                        self.layer_input_cache[i].copy_(update_layer_input, non_blocking=True)
-                    if update_attn is not None:
-                        self.attn_cache[i].copy_(update_attn, non_blocking=True)
-                    self.acc_error[i] = acc_error
-                    if cache_policy=="layer":
-                        torch.cuda.current_stream().wait_stream(prefetch_stream)
-                        self.pre_layer_input = prefetch_layer_input
-                        self.pre_attn = prefetch_attn
-                    if is_skiped:
-                        skiped_layer.append(i)
-
-                # Merge txt and img to pass through single stream blocks.
-                x = torch.cat((img, txt), 1)
-                if len(self.single_blocks) > 0:
-                    for i, block in enumerate(self.single_blocks):
-                        if cache_policy=="layer" or (cache_policy=="warmup" and i==39):
-                            with torch.cuda.stream(prefetch_stream):
-                                prefetch_layer_input = self.layer_input_cache[(i + 21)%60].to('cuda', non_blocking=True)
-                                prefetch_attn = self.attn_cache[(i + 21)%60].to('cuda', non_blocking=True)
-                        single_block_args = [
-                            x,
-                            vec,
-                            txt_seq_len,
-                            cu_seqlens_q,
-                            cu_seqlens_kv,
-                            max_seqlen_q,
-                            max_seqlen_kv,
-                            (freqs_cos, freqs_sin),
-                            self.pre_layer_input,
-                            self.pre_attn,
-                            cache_policy,
-                            beta,
-                            step_index,
-                            (i+20),
-                            self.acc_error[i+20],
-                        ]
-                        x, update_layer_input, update_attn, is_skiped, acc_error = block(*single_block_args)
-                        if update_layer_input is not None:
-                            self.layer_input_cache[i+20].copy_(update_layer_input, non_blocking=True)
-                        if update_attn is not None:
-                            self.attn_cache[i+20].copy_(update_attn, non_blocking=True)
-                        self.acc_error[i+20] = acc_error
-                        if cache_policy=="layer"or (cache_policy=="warmup" and i==39):
-                            torch.cuda.current_stream().wait_stream(prefetch_stream)
-                            self.pre_layer_input = prefetch_layer_input
-                            self.pre_attn = prefetch_attn
-                        if is_skiped:
-                            skiped_layer.append(i+20)
-            else:
-                for i, block in enumerate(self.double_blocks):
-                    double_block_args = [
-                        img,
-                        txt,
-                        vec,
-                        cu_seqlens_q,
-                        cu_seqlens_kv,
-                        max_seqlen_q,
-                        max_seqlen_kv,
-                        freqs_cis,
-                        self.layer_input_cache[i],
-                        self.attn_cache[i],
-                        cache_policy,
-                        beta,
-                        step_index,
-                        i,
-                        self.acc_error[i],
-                    ]
-                    img, txt, update_layer_input, update_attn, is_skiped, acc_error = block(*double_block_args)
-                    if update_layer_input is not None:
-                        self.layer_input_cache[i].copy_(update_layer_input, non_blocking=True)
-                    if update_attn is not None:
-                        self.attn_cache[i].copy_(update_attn, non_blocking=True)
-                    self.acc_error[i] = acc_error
-                    if is_skiped:
-                        skiped_layer.append(i)
-
-                # Merge txt and img to pass through single stream blocks.
-                x = torch.cat((img, txt), 1)
-                if len(self.single_blocks) > 0:
-                    for i, block in enumerate(self.single_blocks):
-                        single_block_args = [
-                            x,
-                            vec,
-                            txt_seq_len,
-                            cu_seqlens_q,
-                            cu_seqlens_kv,
-                            max_seqlen_q,
-                            max_seqlen_kv,
-                            (freqs_cos, freqs_sin),
-                            self.layer_input_cache[i+20],
-                            self.attn_cache[i+20],
-                            cache_policy,
-                            beta,
-                            step_index,
-                            (i+20),
-                            self.acc_error[i+20],
-                        ]
-                        x, update_layer_input, update_attn, is_skiped, acc_error = block(*single_block_args)
-                        if update_layer_input is not None:
-                            self.layer_input_cache[i+20].copy_(update_layer_input, non_blocking=True)
-                        if update_attn is not None:
-                            self.attn_cache[i+20].copy_(update_attn, non_blocking=True)
-                        self.acc_error[i+20] = acc_error
-                        if is_skiped:
-                            skiped_layer.append(i+20)
-
-            img = x[:, :img_seq_len, ...]
-
+            if cache_policy == "warmup":
+                cache_run.allocate(img, txt)
             if cache_policy == "layer":
-                print(f'skiped layers:{skiped_layer}')
-                self.skiped_layer_num += len(skiped_layer)
+                cached_inputs = cache_run.layer_inputs(img.device)
+                scores = cache_run.scores[f"step_{step_index}"]
+            else:
+                cached_inputs = repeat((None, None))
+                scores = {}
+            update_cache = cache_policy in ("warmup", "layer")
 
-            # ---------------------------- Final layer ------------------------------
-            img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
-            self.timestep_cache = img
+            for i, block in enumerate(self.double_blocks):
+                layer_input, attention = next(cached_inputs)
+                img, txt, new_input, new_attention, reused, error = block(
+                    img, txt, vec, cu_seqlens_q, cu_seqlens_kv,
+                    max_seqlen_q, max_seqlen_kv, freqs_cis,
+                    layer_input, attention, cache_policy, beta,
+                    scores.get(f"layer_{i}", 0.0),
+                    cache_run.errors[i] if update_cache else 0.0,
+                )
+                if update_cache:
+                    cache_run.update_layer(i, new_input, new_attention, error)
+                if reused:
+                    reused_layers.append(i)
+
+            x = torch.cat((img, txt), dim=1)
+            for i, block in enumerate(self.single_blocks, start=len(self.double_blocks)):
+                layer_input, attention = next(cached_inputs)
+                x, new_input, new_attention, reused, error = block(
+                    x, vec, txt_seq_len, cu_seqlens_q, cu_seqlens_kv,
+                    max_seqlen_q, max_seqlen_kv, freqs_cis,
+                    layer_input, attention, cache_policy, beta,
+                    scores.get(f"layer_{i}", 0.0),
+                    cache_run.errors[i] if update_cache else 0.0,
+                )
+                if update_cache:
+                    cache_run.update_layer(i, new_input, new_attention, error)
+                if reused:
+                    reused_layers.append(i)
+
+            img = self.final_layer(x[:, :img_seq_len, ...], vec)
+
+        if cache_run is not None:
+            cache_run.timestep_output = img
+        if return_dict and cache_run is not None:
+            out["cache_decision"] = {"step": step_index + 1, "policy": cache_policy, "reused_layers": reused_layers}
 
         img = self.unpatchify(img, tt, th, tw)
         if return_dict:

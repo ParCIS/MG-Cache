@@ -16,7 +16,9 @@
 # Modified from diffusers==0.29.2
 #
 # ==============================================================================
+import hashlib
 import inspect
+import time
 from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 import torch
 import torch.distributed as dist
@@ -43,20 +45,18 @@ from diffusers.utils.torch_utils import randn_tensor
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 from diffusers.utils import BaseOutput
 
+from ...cache import CacheRun, load_calibration
 from ...constants import PRECISION_TO_TYPE
 from ...vae.autoencoder_kl_causal_3d import AutoencoderKLCausal3D
 from ...text_encoder import TextEncoder
 from ...modules import HYVideoDiffusionTransformer
-import json
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 EXAMPLE_DOC_STRING = """"""
 
 def get_skip_timestep(alpha):
-    with open('./calibration_data/timestep_error.json', 'r') as f:
-        # timestep是一个长度为T-1的列表，表示从1-T时间步推理得到的噪声与上一步对应的噪声的相对L1差异大小
-        timestep_error = json.load(f)
+    timestep_error = load_calibration("timestep_error.json")
 
     skip_timestep = []
     accumualte_error = 0
@@ -715,6 +715,10 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         enable_tiling: bool = False,
         n_tokens: Optional[int] = None,
         embedded_guidance_scale: Optional[float] = None,
+        cache_enabled: bool = True,
+        cache_alpha: Optional[float] = None,
+        cache_beta: Optional[float] = None,
+        run_stats: Optional[dict] = None,
         **kwargs,
     ):
         r"""
@@ -972,11 +976,24 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         self._num_timesteps = len(timesteps)
 
-        self.transformer.skip_timestep = get_skip_timestep(self.args.alpha)
-
-        print(f'layer caching shreshold: {self.args.alpha}')
-        print(f"skip_step: {self.transformer.skip_timestep}")
-        print(f"num of skip_step: {len(self.transformer.skip_timestep)}")
+        cache_run = None
+        if cache_enabled:
+            alpha = self.args.alpha if cache_alpha is None else cache_alpha
+            cache_run = CacheRun(
+                get_skip_timestep(alpha),
+                len(self.transformer.double_blocks) + len(self.transformer.single_blocks),
+                self.transformer.is_cache_offload,
+                latents.device,
+            )
+        beta = self.args.beta if cache_beta is None else cache_beta
+        if run_stats is not None:
+            noise_bytes = latents.detach().contiguous().view(torch.uint8).cpu().numpy()
+            run_stats["initial_latents_sha256"] = hashlib.sha256(noise_bytes).hexdigest()
+            del noise_bytes
+            run_stats["cache_steps"] = []
+            if latents.is_cuda:
+                torch.cuda.synchronize(latents.device)
+            denoise_start = time.perf_counter()
 
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
@@ -1009,7 +1026,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                 with torch.autocast(
                     device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
                 ):
-                    noise_pred = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                    result = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
                         latent_model_input,  # [2, 16, 33, 24, 42]
                         t_expand,  # [2]
                         text_states=prompt_embeds,  # [2, 256, 4096]
@@ -1020,10 +1037,12 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         guidance=guidance_expand,
                         return_dict=True,
                         step_index=i,
-                        beta=self.args.beta,
-                    )[
-                        "x"
-                    ]
+                        beta=beta,
+                        cache_run=cache_run,
+                    )
+                noise_pred = result["x"]
+                if run_stats is not None and cache_run is not None:
+                    run_stats["cache_steps"].append(result["cache_decision"])
 
                 # perform guidance
                 if self.do_classifier_free_guidance:
@@ -1066,7 +1085,11 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     if callback is not None and i % callback_steps == 0:
                         step_idx = i // getattr(self.scheduler, "order", 1)
                         callback(step_idx, t, latents)
-        print(f'totoal skiped layer count: {self.transformer.skiped_layer_num}')
+        if run_stats is not None:
+            if latents.is_cuda:
+                torch.cuda.synchronize(latents.device)
+            run_stats["denoise_seconds"] = time.perf_counter() - denoise_start
+        del cache_run
 
         if not output_type == "latent":
             expand_temporal_dim = False

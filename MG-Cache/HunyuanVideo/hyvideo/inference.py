@@ -53,6 +53,7 @@ def parallelize_transformer(pipe):
         freqs_sin: Optional[torch.Tensor] = None,
         guidance: torch.Tensor = None,  # Guidance for modulation, should be cfg_scale x 1000.
         return_dict: bool = True,
+        **kwargs,
     ):
         if x.shape[-2] // 2 % get_sequence_parallel_world_size() == 0:
             # try to split x by height
@@ -92,6 +93,7 @@ def parallelize_transformer(pipe):
             freqs_sin,
             guidance,
             return_dict,
+            **kwargs,
         )
 
         return_dict = not isinstance(output, tuple)
@@ -141,6 +143,7 @@ class Inference(object):
         self.parallel_args = parallel_args
 
     @classmethod
+    @torch.no_grad()
     def from_pretrained(cls, pretrained_model_path, args, device=None, **kwargs):
         """
         Initialize the Inference pipeline.
@@ -181,9 +184,6 @@ class Inference(object):
         parallel_args = {"ulysses_degree": args.ulysses_degree, "ring_degree": args.ring_degree}
 
         # ======================== Get the args path =============================
-
-        # Disable gradient
-        torch.set_grad_enabled(False)
 
         # =========================== Build main model ===========================
         logger.info("Building model...")
@@ -509,6 +509,11 @@ class HunyuanVideoSampler(Inference):
         embedded_guidance_scale=None,
         batch_size=1,
         num_videos_per_prompt=1,
+        cache_enabled=True,
+        cache_alpha=None,
+        cache_beta=None,
+        profile=False,
+        callback_on_step_end=None,
         **kwargs,
     ):
         """
@@ -645,6 +650,7 @@ class HunyuanVideoSampler(Inference):
         # Pipeline inference
         # ========================================================================
         start_time = time.time()
+        run_stats = {} if profile else None
         samples = self.pipeline(
             prompt=prompt,
             height=target_height,
@@ -663,9 +669,17 @@ class HunyuanVideoSampler(Inference):
             is_progress_bar=True,
             vae_ver=self.args.vae,
             enable_tiling=self.args.vae_tiling,
+            cache_enabled=cache_enabled,
+            cache_alpha=cache_alpha,
+            cache_beta=cache_beta,
+            run_stats=run_stats,
+            callback_on_step_end=callback_on_step_end,
         )[0]
+        if run_stats is not None:
+            out_dict["run_stats"] = run_stats
         out_dict["samples"] = samples
         out_dict["prompts"] = prompt
+        out_dict["negative_prompts"] = negative_prompt
 
         gen_time = time.time() - start_time
         logger.info(f"Success, time: {gen_time}")

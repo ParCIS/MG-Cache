@@ -1,0 +1,52 @@
+{
+  "last_node_id": 1,
+  "last_link_id": 0,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "HunyuanVideoMGCache",
+      "pos": [
+        64,
+        30
+      ],
+      "size": [
+        960,
+        560
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "HunyuanVideoMGCache"
+      },
+      "widgets_values": [
+        "A red paper boat drifts down a shallow forest stream, sunlight shimmering across the water. A slow tracking shot follows it downstream.",
+        "",
+        42,
+        "fixed",
+        640,
+        480,
+        65,
+        1,
+        0.03,
+        0.3,
+        false
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.87,
+      "offset": [
+        0,
+        0
+      ]
+    }
+  },
+  "version": 0.4
+}

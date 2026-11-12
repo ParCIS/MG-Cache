@@ -63,6 +63,10 @@ Each baseline directory also contains its own requirements, tests, utilities, an
 upstream license notices. See the [baseline guide](baseline/README.md) for setup
 and inference commands.
 
+## ComfyUI integration
+
+The [HunyuanVideo MG-Cache node](comfyui_mg_cache/README.md) includes a workflow for generating videos, comparing against a full-compute baseline, and inspecting per-step and per-layer cache decisions.
+
 ## Baseline implementations
 
 Complete HunyuanVideo inference source for our FORA, MixCache, and SmoothCache
